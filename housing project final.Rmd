@@ -1,0 +1,1064 @@
+---
+title: "housing"
+author: "Emma Xuecong Sun"
+date: "11/27/2018"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggmap)
+library(maps)
+library(mapdata)
+library(lattice)
+library(corrplot)
+library(cowplot)
+library(formattable)
+```
+
+#Research Question
+1) Interpret how price of houses in King County is affected by a myriad of variables such as number of bedrooms, number of bathrooms, location, square feet of house and etc. What's the likely range for the difference in prices between houses that have different features and locations? Does houses in seattle tend to have higher price than houses in other regions? How much higher?
+
+2) Is there any evidence that the association between prices of houses and any feature of house differs by region? If so, characterize those differences.
+
+
+#Read in data and Understand variables
+```{r, echo=TRUE}
+data=read.csv("kinghousing.csv", sep='|')
+summary(data)
+```
+
+The dependent variable is price. The independent variables are the rest. I will discuss on which variables belong to categorical and which variables belong to continous in the EDA section.
+
+There are extreme values observed in a few variables, such as bedrooms, bathrooms and sqft_living. Need to be cautious of potential leveage points in the dataset.
+
+
+#EDA on Variables
+##Bedrooms, Bathrooms, Condition, View - Categorical/Continuous Variable
+
+```{r}
+#try out price against grade
+ggplot(data,aes(y=price,x=as.factor(grade)))+
+  geom_boxplot()+
+  labs(y="Price",x="Grades", title="Price against Grades (Original)")+
+  theme(legend.title=element_blank())
+
+#log price
+data$logprice=log(data$price)
+
+#bedrooms
+lineplot_bedroom=ggplot(data,aes(y=logprice,x=bedrooms))+
+  geom_point()+
+  geom_smooth()+
+  labs(y="Logprice",x="Number of Bedrooms", title="Logprice against Number of Bedrooms (Original)")+
+  theme(legend.title=element_blank())
+
+boxplot_bedroom=ggplot(data, aes(y=logprice,x=as.factor(bedrooms),fill=as.factor(bedrooms)))+
+  geom_boxplot()+
+  labs(y="Logprice",x="Number of Bedrooms", title="Logprice against Number of Bedrooms (Original)")+
+  theme(legend.title=element_blank())
+
+plot_grid(lineplot_bedroom, boxplot_bedroom, ncol = 1, align = 'v')
+
+#remove 33 rooms as its number of rooms exceed the normal range and for our research question, I would only like to examine normal type of residential house
+rowindex=as.numeric(data %>% filter(bedrooms==33) %>% select(X))
+data=data[-rowindex,]
+
+#check sample size for each type of bedroom
+bedroomtype=data %>% group_by(bedrooms) %>% count()
+#9+ bedrooms let's lump them together as each individual group has relatively small sample size
+data$bedroomsnew=data$bedrooms
+data$bedroomsnew[data$bedroomsnew>=9]=9
+
+#replot
+lineplot_bedroomnew=ggplot(data,aes(y=logprice,x=bedroomsnew))+
+  geom_point()+
+  geom_smooth()+
+  labs(y="Logprice",x="Number of Bedrooms", title="Logprice against Number of Bedrooms (Cleaned)")+
+  theme(legend.title=element_blank())
+
+boxplot_bedroomnew=ggplot(data, aes(y=logprice,x=as.factor(bedroomsnew),fill=as.factor(bedroomsnew)))+
+  geom_boxplot()+
+  labs(y="Logprice",x="Number of Bedrooms", title="Logprice against Number of Bedrooms (Cleaned)")+
+  theme(legend.title=element_blank())
+
+plot_grid(lineplot_bedroomnew, boxplot_bedroomnew, ncol = 1, align = 'v')
+
+
+#I can treat bedrooms as either continuous or categorical variable, as from the scatter plot it seems there's a linear trend betIen number of bedrooms of price of house. I will try both when I model
+
+#bathrooms
+lineplot_bathroom=ggplot(data,aes(y=logprice,x=bathrooms))+
+  geom_point()+
+  geom_smooth()+
+  labs(y="Logprice",x="Number of Bathrooms", title="Logprice against Number of Bathrooms (Original)")+
+  theme(legend.title=element_blank())
+
+boxplot_bathroom=ggplot(data, aes(y=logprice,x=as.factor(bathrooms),fill=as.factor(bathrooms)))+
+  geom_boxplot()+
+  labs(y="Logprice",x="Number of Bathrooms", title="Logprice against Number of Bathrooms (Original)")+
+  theme(legend.title=element_blank(),axis.text.x = element_text(angle = 90, hjust = 1))
+
+plot_grid(lineplot_bathroom, boxplot_bathroom, ncol = 1, align = 'v')
+
+
+
+#check sample size for each type of bedroom
+bathroomtype=data %>% group_by(bathrooms) %>% count()
+
+#group bathrooms together
+data$bathroomsnew=data$bathrooms
+data$bathroomsnew[data$bathrooms<=1]=1
+data$bathroomsnew[data$bathrooms<=2 & data$bathrooms>1]=2
+data$bathroomsnew[data$bathrooms<=3 & data$bathrooms>2]=3
+data$bathroomsnew[data$bathrooms<=4 & data$bathrooms>3]=4
+data$bathroomsnew[data$bathrooms<=5 & data$bathrooms>4]=5
+data$bathroomsnew[data$bathrooms<=6 & data$bathrooms>5]=6
+data$bathroomsnew[data$bathrooms<=8 & data$bathrooms>6]=7
+
+
+#check sample size for new type of bedroom
+bathroomtype=data %>% group_by(bathroomsnew) %>% count()
+
+#replot
+lineplot_bathroomnew=ggplot(data,aes(y=logprice,x=bathroomsnew))+
+  geom_point()+
+  geom_smooth()+
+  labs(y="Logprice",x="Number of Bathrooms", title="Logprice against Number of Bathrooms (Cleaned)")+
+  theme(legend.title=element_blank())
+
+boxplot_bathroomnew=ggplot(data, aes(y=logprice,x=as.factor(bathroomsnew),fill=as.factor(bathroomsnew)))+
+  geom_boxplot()+
+  labs(y="Logprice",x="Number of Bathrooms", title="Logprice against Number of Bathrooms (Cleaned)")+
+  theme(legend.title=element_blank())
+
+plot_grid(lineplot_bathroomnew, boxplot_bathroomnew, ncol = 1, align = 'v')
+
+#I can treat bathrooms as either continuous or categorical variable, as from the scatter plot it seems there's a linear trend betIen number of bathrooms of price of house. I will try both when I model
+
+#Condition
+boxplot_condition=ggplot(data, aes(y=logprice,x=as.factor(condition),fill=as.factor(condition)))+
+  geom_boxplot()+
+  labs(y="Logprice",x="Condition", title="Logprice against Condition")+
+  theme(legend.title=element_blank())
+
+#View
+boxplot_view=ggplot(data, aes(y=logprice,x=as.factor(view),fill=as.factor(view)))+
+  geom_boxplot()+
+  labs(y="Logprice",x="View", title="Logprice against Views")+
+  theme(legend.title=element_blank())
+
+plot_grid(boxplot_condition, boxplot_view)
+
+
+```
+
+From the first plot of price against grades, we can see the price variance at each grade increases as grade increases. Also, there are many points outside boxplot. Therefore, I log price to try to control the variance in price and pull the points outside boxplot closer to each other.
+
+Through EDA, I found out there are extreme points, such as a house with 33 bedrooms. Therefore, I drop that data point as my research focuses on typical houses that have a normal range of rooms. Moreover, the sample sizes for certain type of bedrooms and bathrooms are pretty small, and there are too many different types of bathrooms. Therefore, I combine a few types of bedrooms and bathrooms together. 
+
+From the line graph of price against bedroom and bathroom, we can see there is linear trend between log price and number of bedroom/bathroom. The more bedrooms or bathrooms there are, the higher the house price.
+
+I can treat number of bedroom and number of bathroom to be continuous. However, I can also keep them to maintain the flexibility of the model. I will explore in the modelling section on whether to keep them as continuous or categorical.
+
+For condition and view, although they are categorical variables, we can see a clear linear positive trend they have with logprice and scientifically it makes sense - houses with better condition tend to have higher price and houses that many people have viewed it tend to have higher price. I will try to model both as categorical and as continuous as well just to see their performance.
+
+##Floors, Waterfront - Categorical variable
+```{r}
+#floors
+boxplot_floors=ggplot(data, aes(y=logprice,x=as.factor(floors),fill=as.factor(floors)))+
+  geom_boxplot()+
+  labs(y="Logprice",x="Number of Floors", title="Logprice against Floors")+
+  theme(legend.title=element_blank(), plot.title = element_text(hjust = 0.5))
+
+#waterfront
+boxplot_waterfront=ggplot(data, aes(y=logprice,x=as.factor(waterfront),fill=as.factor(waterfront)))+
+  geom_boxplot()+
+  labs(y="Logprice",x="Waterfront", title="Logprice against Waterfront")+
+  theme(legend.title=element_blank(), plot.title = element_text(hjust = 0.5))
+
+plot_grid(boxplot_floors, boxplot_waterfront)
+
+
+
+```
+
+It seems from floor 1 to 2.5, the more floors the house has, the higher the house price is. However, there's a dip for house that has 3 floors which is interesting. Houses that have waterfront tend to higher price than the ones without. For condition, the higher the condition score is, the higher the house price is. And for view, the house price also seems to have a positive relationship with the number of views to the house.
+
+
+##Geo_location - Categorical Variable
+```{r}
+citytype=data %>% select("city") %>% group_by(city) %>% count()
+
+island=c('Southworth','Vashon','Maplewood', 'Gig Harbor')
+federalkent=c('Tacoma','Federal Way','Fife Heights','Milton','Edgewood','Lakeland South','Lakeland North','Auburn','Lea Hill','Algona','Pacific','Buckley','Enumclaw','Black Diamond','Lake Morton-Berrydale','Ravensdale','Maple Valley','Kent','Covington')
+seattle=c('Seattle','Burien','White Center','Normandy Park','SeaTac','Des Moines','Boulevard Park','Riverton')
+shoreline=c('Shoreline','Woodway','Esperance','Mountlake Terrace','Brier','Lake Forest Park','Bothell','Kenmore','Woodinville','Maltby','Cottage Lake','Duvall')
+goldbar=c('Goldbar')
+bellevuerenton=c('Bellevue','Renton','Bryn Mawr-Skyway','Tukwila','Fairwood','East Renton Highlands','Maple Heights-Lake Desire',
+'Eastgate','Newcastle','West Lake Sammamish','Kirkland','Inglewood-Finn Hill','Yarrow Point','Clyde Hill','Medina','Kingsgate','Redmond','Mercer Island','East Hill-Meridian')
+issaquah=c('Fall City','Snoqualmie','North Bend','Tanner','Riverbend','Issaquah','Newport','Klahanie','City of Sammamish','Sammamish','Ames Lake','Carnation','Lake Marcel-Stillwater','Union Hill-Novelty Hill','Mirrormont','Hobart')
+
+data$region=data$city
+data$region=as.character((data$region))
+i=0
+j=0
+x=0
+y=0
+z=0
+w=0
+q=0
+for(i in seq(1,21612)){
+  for(j in seq(1,4)){
+    if(data$city[i]==island[j]){
+      data$region[i]='Island'
+    }
+    
+  }
+  for (x in seq(1,19)){
+    if(data$city[i]==federalkent[x]){
+      data$region[i]='Federal Way & Kent'
+    }
+  }
+  
+  for(y in seq(1,8)){
+    if(data$city[i]==seattle[y]){
+      data$region[i]='Seattle'
+    }
+  }
+  
+  for(z in seq(1,12)){
+    if(data$city[i]==shoreline[z]){
+      data$region[i]='Shoreline'
+    }
+  }
+  
+  for(w in seq(1,19)){
+    if(data$city[i]==bellevuerenton[w]){
+      data$region[i]='Bellevue & Renton'
+    }
+  }
+  
+  for(q in seq(1,16)){
+    if(data$city[i]==issaquah[q]){
+      data$region[i]='Issaquah'
+    }
+  }
+  
+  if(data$city[i]=='Gold Bar'){
+    data$region[i]='Gold Bar'
+  }
+  
+}
+
+regiontype=data %>% select("region") %>% group_by(region) %>% count()
+```
+
+In this dataset, the location of each house is provided through latitude and longitude. I used a python package called revgeocode to tag the city where each house locates. Eventually, there are 79 different cities where the houses locate. I then check on the map and group cities nearby each other into 7 major regions - Shoreline, Bellevue & Renton, FederalWay & Kent, GoldBar, Island, Issaquah and Seattle.
+
+##Plot Geo-location
+```{r}
+#draw maps for the city location variable
+states=map_data("state")
+counties=map_data("county")
+
+king<- subset(counties, subregion %in% c("king"))
+king=king %>% filter(long < (-120))
+counts=king %>% group_by(subregion) %>% count()
+
+king_base=ggplot(data = king, mapping = aes(x = long, y = lat)) + 
+  coord_fixed(1.3) + 
+  geom_polygon(color = "black", fill = "gray")
+king_base+
+   geom_point(data = data, aes(x = long, y = lat,color=region), size = 1)+
+  labs(title="Houses in Different Regions of King County")
+```
+
+We can see from the map that a few houses are tagged to the wrong city. For example, cities in Issaquah (blue color) should have longitude bigger than -122.0. Therefore, we shouldn't see any issaquah color in the island region. Moreover, in Bellevue & Renton region, we also see a few locations tagged to be Issaquah which in fact should be Bellevue & Renton. I thus filter out these points in the next session and tag them with the correct city names.
+
+
+```{r}
+#modify wrongly labelled geo-location data
+bellecheck=data %>% filter(region=='Issaquah') %>% filter(long<(-122.125))
+data$city[data$region=='Issaquah' & data$long <(-122.125)]='Bellevue'
+
+islandcheck=data %>% filter(region=='Issaquah') %>% filter(long<(-122.3))
+data$city[data$region=='Issaquah' & data$long<(-122.3)]='Vashon' 
+islandall=data %>% filter(region=='Island')
+
+```
+
+After retagging, we run the region tagging code again to retag region.
+
+```{r, echo=FALSE, include=FALSE}
+citytype=data %>% select("city") %>% group_by(city) %>% count()
+
+island=c('Southworth','Vashon','Maplewood', 'Gig Harbor')
+federalkent=c('Tacoma','Federal Way','Fife Heights','Milton','Edgewood','Lakeland South','Lakeland North','Auburn','Lea Hill','Algona','Pacific','Buckley','Enumclaw','Black Diamond','Lake Morton-Berrydale','Ravensdale','Maple Valley','Kent','Covington')
+seattle=c('Seattle','Burien','White Center','Normandy Park','SeaTac','Des Moines','Boulevard Park','Riverton')
+shoreline=c('Shoreline','Woodway','Esperance','Mountlake Terrace','Brier','Lake Forest Park','Bothell','Kenmore','Woodinville','Maltby','Cottage Lake','Duvall')
+goldbar=c('Goldbar')
+bellevuerenton=c('Bellevue','Renton','Bryn Mawr-Skyway','Tukwila','Fairwood','East Renton Highlands','Maple Heights-Lake Desire',
+'Eastgate','Newcastle','West Lake Sammamish','Kirkland','Inglewood-Finn Hill','Yarrow Point','Clyde Hill','Medina','Kingsgate','Redmond','Mercer Island','East Hill-Meridian')
+issaquah=c('Fall City','Snoqualmie','North Bend','Tanner','Riverbend','Issaquah','Newport','Klahanie','City of Sammamish','Sammamish','Ames Lake','Carnation','Lake Marcel-Stillwater','Union Hill-Novelty Hill','Mirrormont','Hobart')
+
+data$region=data$city
+data$region=as.character((data$region))
+i=0
+j=0
+x=0
+y=0
+z=0
+w=0
+q=0
+for(i in seq(1,21612)){
+  for(j in seq(1,4)){
+    if(data$city[i]==island[j]){
+      data$region[i]='Island'
+    }
+    
+  }
+  for (x in seq(1,19)){
+    if(data$city[i]==federalkent[x]){
+      data$region[i]='Federal Way & Kent'
+    }
+  }
+  
+  for(y in seq(1,8)){
+    if(data$city[i]==seattle[y]){
+      data$region[i]='Seattle'
+    }
+  }
+  
+  for(z in seq(1,12)){
+    if(data$city[i]==shoreline[z]){
+      data$region[i]='Shoreline'
+    }
+  }
+  
+  for(w in seq(1,19)){
+    if(data$city[i]==bellevuerenton[w]){
+      data$region[i]='Bellevue & Renton'
+    }
+  }
+  
+  for(q in seq(1,16)){
+    if(data$city[i]==issaquah[q]){
+      data$region[i]='Issaquah'
+    }
+  }
+  
+  if(data$city[i]=='Gold Bar'){
+    data$region[i]='Gold Bar'
+  }
+  
+}
+
+regiontype=data %>% select("region") %>% group_by(region) %>% count()
+```
+
+##EDA Geolocation
+```{r}
+king_base=ggplot(data = king, mapping = aes(x = long, y = lat)) + 
+  coord_fixed(1.3) + 
+  geom_polygon(color = "black", fill = "gray")
+king_base+
+   geom_point(data = data, aes(x = long, y = lat,color=region), size = 1)+
+  labs(title="Houses in Different Regions of King County")+
+  theme(axis.ticks.y = element_blank(),axis.text.y = element_blank(), 
+          axis.ticks.x = element_blank(),axis.text.x = element_blank(),
+        axis.line = element_blank(), axis.title=element_blank())
+
+ggplot(data, aes(y=logprice,x=as.factor(region),fill=as.factor(region)))+
+  geom_boxplot()+
+  labs(y="Logprice",x="Region", title="Logprice against Regions")+
+  theme(legend.title=element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+Gold Bar seems to be the region that has the lowest median of price whereas Issaquah seems to be the region that has the highest median of price.The variance of price in Bellevue and Renton is the highest followed by Seattle.
+
+##Grade - Continuous variable
+```{r}
+#grade
+lineplot_grade=ggplot(data, aes(y=logprice,x=grade))+
+  geom_point()+
+  geom_smooth()+
+  labs(y="Logprice",x="Grades", title="Logprice against Grades (Original)")
+
+#check sample size for each type of grade
+gradetype=data %>% group_by(grade) %>% count()
+#grade1 and 3 have very few elements, so i will group them together
+data$gradenew=data$grade
+data$gradenew[data$grade<=3]=3
+#replot
+lineplot_gradenew=ggplot(data, aes(y=logprice,x=grade))+
+  geom_point()+
+  geom_smooth()+
+  labs(y="Logprice",x="Grades", title="Logprice against Grades (Cleaned)")
+
+
+plot_grid(lineplot_grade, lineplot_gradenew)
+```
+
+It is very obvious that there's a quadratic trend between grade and logprice. So I will treat grade as a continous variable and add a quadratic term to it in modelling.
+
+
+##Sqft - Continuous variable
+```{r}
+#Here we will look at all continous variables together as they sound closely related to each other
+ggplot(data, aes(y=logprice))+
+  geom_smooth(aes(x=sqft_living, color="sqft_living"))+
+  geom_smooth(aes(x=sqft_living15,color="sqft_living15"))+
+  labs(y="Logprice", x="Sqft_Living", title="Logprice against Sqft_Living")+
+  scale_colour_manual("", 
+                      values = c(sqft_living="red", sqft_living15="green"),
+                      breaks=c("sqft_living","sqft_living15"),
+                      guide="legend")
+  
+ggplot(data, aes(y=logprice))+
+  geom_smooth(aes(x=sqft_lot,color="sqft_lot"))+
+  geom_smooth(aes(x=sqft_lot15,color="sqft_lot15"))+
+  labs(y="Logprice", x="Sqft_Lot", title="Logprice against Sqft_Lot")+
+  scale_colour_manual("",
+                      values=c(sqft_lot="red", sqft_lot15="green"),
+                      breaks=c("sqft_lot","sqft_lot15"),
+                      guide="legend")
+
+ggplot(data, aes(y=logprice))+
+  geom_smooth(aes(x=sqft_living,color="sqft_living"))+
+  geom_smooth(aes(x=sqft_above,color="sqft_above"))+
+  geom_smooth(aes(x=sqft_basement,color="sqft_basement"))+
+  labs(y="Logprice", x="Sqft", title="Logprice against Sqft Living/Above/Basement")+
+  scale_colour_manual("",
+                      values=c(sqft_living="blue", sqft_above="orange", sqft_basement="black"),
+                      breaks=c("sqft_living","sqft_above", "sqft_basement"),
+                      guide="legend")
+
+#square feet living and square feet above are closely correlated, having correlation as high as 0.8, therefore, we will not use sqft_above in modelling. 
+datasqft=data.frame(data$sqft_living,data$sqft_above,data$sqft_basement)
+cor(datasqft)
+
+#for basement, there are houses that do not have basement at all. Therefore, I will create 1 dummy have_basement to work together with sqft_basement
+data$have_basement=data$sqft_basement
+data$have_basement[data$sqft_basement==0]=0
+data$have_basement[data$sqft_basement>0]=1
+
+ggplot(data=data, aes(y=logprice, x=as.factor(have_basement), fill=as.factor(have_basement)))+
+  geom_boxplot()+
+  labs(x="Have_Basement", y="Logprice", title="Logprice against Have_Basement")+
+  theme(legend.title=element_blank())
+
+```
+
+It seems in 2015, both sqft_lot and sqft_living decreases significantly from the original. This may be because certain regulation given by the government that cause all house square feet to be reduced, or maybe the 2015 data suffers from some major error. As there are houses sold before 2015, and also the relationship between square feet living/square feet lot and price are similar between before 2015 and 2015 data. Therefore, I will use the original square feet information rather than the 2015 data.
+
+From the last graph, and also the correlation check, square feet living and square feet above are closely correlated, having correlation as high as 0.8, therefore, we will not use sqft_above in modelling.
+
+For basement, there are houses that do not have basement at all. Moreover, the trend between logprice and basement is very similar to trend betweet logprice and sqft_living. I believe sqft_living alone can account for price. Therefore, I will create 1 dummy have_basement to account for basement.
+
+Also, there's quadratic trend between logprice and sqft_living, sqft_lot and sqft_basement. I will log them to account for the quadratic trend. I will choose to log because there are very high values in these variables. I would like to use log to pull them back.
+
+
+##yr_built/yr_renovate - Continuous variables
+```{r}
+#convert year_built to age of house
+data$datesoldyear=as.numeric(substring(data$date,1,4))
+data$age=data$datesoldyear-as.numeric(data$yr_built)
+data$age[data$age==-1]=0
+agetype=data %>% group_by(datesoldyear) %>% count()
+#plot price against age
+ggplot(data=data, aes(y=logprice,x=age))+
+  geom_point()+
+  geom_smooth()+
+  labs(x="Age", y="Logprice", title="Logprice against Age of House")
+
+#convert year_reno to have_reno binary variable
+#calculate time from renovation. If there's renovation, timefromreno=sold year-reno year. If there's no renovation, timefromreno=age of property
+data$timefromreno=data$datesoldyear-as.numeric(data$yr_renovated)
+data$timefromreno[data$yr_renovated==0]=data$age[data$yr_renovated==0]
+data$timefromreno[data$datesoldyear<data$yr_renovated]=data$age[data$datesoldyear<data$yr_renovated]
+data$have_reno=rep(0,nrow(data))
+data$have_reno[data$yr_renovated!=0]=1
+ggplot(data=data, aes(y=logprice, x=as.factor(have_reno), fill=as.factor(have_reno)))+
+  geom_boxplot()+
+  labs(x="Have_Reno", y="Logprice", title="Logprice against Have_Reno")+
+  theme(legend.title=element_blank())
+
+#as there are houses with renovation and without renovation, I will add a dummy called have_reno as well
+```
+
+I converted yr_built to the age of the house, and converted yr_reno to have_reno binary to represent whether the house has been through renovation. There's a not so obvious decreasing trend between logprice and age of house. For renovation, clearly, houses with renovation tend to have a higher price than houses without.
+
+#Interesting plots on Regions
+##How the features of houses differ by region?
+```{r}
+#bedroom
+data$bedroomlevel=as.factor(data$bedroomsnew)
+regionbedroomstack=data %>% group_by(region, bedroomlevel) %>% count()
+regionplot_bedroom=ggplot(regionbedroomstack, aes(x = region, y = n, fill = bedroomlevel)) + 
+  geom_bar(stat = "identity") +
+  labs(x="Region", y="Counts", title="Distribution of Types of Bedroom in Different Regions")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+#bathroom
+data$bathroomlevel=as.factor(data$bathroomsnew)
+regionbathroomstack=data %>% group_by(region, bathroomlevel) %>% count()
+regionplot_bathroom=ggplot(regionbathroomstack, aes(x = region, y = n, fill = bathroomlevel)) + 
+  geom_bar(stat = "identity") +
+  labs(x="Region", y="Counts", title="Distribution of Types of Bathroom in Different Regions")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+#floors
+data$floorlevel=as.factor(data$floors)
+regionfloorstack=data %>% group_by(region, floorlevel) %>% count()
+regionplot_floor=ggplot(regionfloorstack, aes(x = region, y = n, fill = floorlevel)) + 
+  geom_bar(stat = "identity") +
+  labs(x="Region", y="Counts", title="Distribution of Types of Floors in Different Regions")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+#condition
+data$conditionlevel=as.factor(data$condition)
+regionconditionstack=data %>% group_by(region, conditionlevel) %>% count()
+regionplot_condition=ggplot(regionconditionstack, aes(x = region, y = n, fill = conditionlevel)) + 
+  geom_bar(stat = "identity") +
+  labs(x="Region", y="Counts", title="Distribution of Types of Condition in Different Regions")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+#waterfront
+data$waterfrontlevel=as.factor(data$waterfront)
+regionwaterfrontstack=data %>% group_by(region, waterfrontlevel) %>% count()
+regionplot_waterfront=ggplot(regionwaterfrontstack, aes(x = region, y = n, fill = waterfrontlevel)) + 
+  geom_bar(stat = "identity") +
+  labs(x="Region", y="Counts", title="Distribution of Waterfront in Different Regions")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+#view
+data$viewlevel=as.factor(data$view)
+regionviewstack=data %>% group_by(region, viewlevel) %>% count()
+regionplot_view=ggplot(regionviewstack, aes(x = region, y = n, fill = viewlevel)) + 
+  geom_bar(stat = "identity") +
+  labs(x="Region", y="Counts", title="Distribution of Types of View in Different Regions")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+#have_reno
+data$renolevel=as.factor(data$have_reno)
+regionrenostack=data %>% group_by(region, renolevel) %>% count()
+regionplot_havereno=ggplot(regionrenostack, aes(x = region, y = n, fill = renolevel)) + 
+  geom_bar(stat = "identity") +
+  labs(x="Region", y="Counts", title="Distribution of House Renovation in Different Regions")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+#have_basement
+data$basementlevel=as.factor(data$have_basement)
+regionbasementstack=data %>% group_by(region, basementlevel) %>% count()
+regionplot_havebasement=ggplot(regionbasementstack, aes(x = region, y = n, fill = basementlevel)) + 
+  geom_bar(stat = "identity") +
+  labs(x="Region", y="Counts", title="Distribution of Basement in Different Regions")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+regionplot_bedroom
+regionplot_bathroom
+regionplot_condition
+regionplot_floor
+regionplot_view
+regionplot_waterfront
+regionplot_havereno
+regionplot_havebasement
+
+#sqft_living(log)
+ggplot(data, aes(x = region, y = log(sqft_living), fill = region)) + 
+  geom_boxplot() +
+  labs(x="Region", y="Log Sqft_Living", title="Sqft_Living in Different Regions")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+#sqft_lot(log)
+ggplot(data, aes(x = region, y = log(sqft_lot), fill = region)) + 
+  geom_boxplot() +
+  labs(x="Region", y="Log Sqft_Lot", title="Sqft_Lot in Different Regions")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+#sqft_basement(log)
+ggplot(data, aes(x = region, y = log(sqft_basement), fill = region)) + 
+  geom_boxplot() +
+  labs(x="Region", y="Log Sqft_Basement", title="Sqft_Basement in Different Regions")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+#grade
+ggplot(data, aes(x = region, y = grade, fill = region)) + 
+  geom_boxplot() +
+  labs(x="Region", y="Grade", title="Grade in Different Regions")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+#age
+ggplot(data, aes(x = region, y = log(age), fill = region)) + 
+  geom_boxplot() +
+  labs(x="Region", y="Log Age", title="Age in Different Regions")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+```
+
+Bedroom - 3 and 4 bedrooms are the most common types among all houses across regions, followed by 2 and 5 bedrooms. Bedrooms above 6 are really rare compared with other types. Seattle has the highest number of 2 bedrooms among all regions.
+
+Bathroom - 3 bathrooms is the most common among all regions, followed by 2 and 1 bathrooms. Bathrooms above 5 is really rare compared with other types.
+
+Condition - Condition 3 is the most common across all regions. Bellevue & Renton and Seattle have the highest number of condition level above 4.
+
+Floor - Floor 1 is the most common across all regions, follwed by floor 2. Seattle and Shoreline have a significant amount of 3 floors whereas the other regions don't.
+
+View/Waterfront/Renovation- no view, have waterfront and have renovated are the norms across regions.
+
+Basement - most of houses in most of regions don't have basement. In Seattle we observe the highest amount of houses having basement.
+
+Square Feet Living - seems Gold Bar has the lowest square feet living median whereas Issaquah has the highest.
+
+Square Feet Lot - seems Island has the highest square feet lot median whereas Seattle has the lowest.
+
+Square Feet basement - basement across all regions seem to be the same. 
+
+Grade - Gold Bar has the lowest grade median whereas Issaquah has the highest.
+
+Age - Seattle has the highest age median whereas Issaquah has the lowest.
+
+
+
+
+#Check correlation among numeric variables and ordered dummy variables
+
+```{r, include=FALSE}
+data$bedroom1=rep(0,nrow(data))
+data$bedroom2=rep(0,nrow(data))
+data$bedroom3=rep(0,nrow(data))
+data$bedroom4=rep(0,nrow(data))
+data$bedroom5=rep(0,nrow(data))
+data$bedroom6=rep(0,nrow(data))
+data$bedroom7=rep(0,nrow(data))
+data$bedroom8=rep(0,nrow(data))
+data$bedroom9=rep(0,nrow(data))
+
+data$bedroom1[data$bedroomsnew==1]=1
+data$bedroom2[data$bedroomsnew==2]=1
+data$bedroom3[data$bedroomsnew==3]=1
+data$bedroom4[data$bedroomsnew==4]=1
+data$bedroom5[data$bedroomsnew==5]=1
+data$bedroom6[data$bedroomsnew==6]=1
+data$bedroom7[data$bedroomsnew==7]=1
+data$bedroom8[data$bedroomsnew==8]=1
+data$bedroom9[data$bedroomsnew==9]=1
+
+data$bathroom2=rep(0,nrow(data))
+data$bathroom3=rep(0,nrow(data))
+data$bathroom4=rep(0,nrow(data))
+data$bathroom5=rep(0,nrow(data))
+data$bathroom6=rep(0,nrow(data))
+data$bathroom7=rep(0,nrow(data))
+
+data$bathroom2[data$bathroomsnew==2]=1
+data$bathroom3[data$bathroomsnew==3]=1
+data$bathroom4[data$bathroomsnew==4]=1
+data$bathroom5[data$bathroomsnew==5]=1
+data$bathroom6[data$bathroomsnew==6]=1
+data$bathroom7[data$bathroomsnew==7]=1
+
+data$floor1.5=rep(0,nrow(data))
+data$floor2=rep(0,nrow(data))
+data$floor2.5=rep(0,nrow(data))
+data$floor3=rep(0,nrow(data))
+data$floor3.5=rep(0,nrow(data))
+
+data$floor1.5[data$floors==1.5]=1
+data$floor2[data$floors==2]=1
+data$floor2.5[data$floors==2.5]=1
+data$floor3[data$floors==3]=1
+data$floor3.5[data$floors==3.5]=1
+
+data$view1=rep(0,nrow(data))
+data$view2=rep(0,nrow(data))
+data$view3=rep(0,nrow(data))
+data$view4=rep(0,nrow(data))
+
+data$view1[data$view==1]=1
+data$view2[data$view==2]=1
+data$view3[data$view==3]=1
+data$view4[data$view==4]=1
+
+data$condition1=rep(0,nrow(data))
+data$condition2=rep(0,nrow(data))
+data$condition3=rep(0,nrow(data))
+data$condition4=rep(0,nrow(data))
+
+data$condition1[data$condition==1]=1
+data$condition2[data$condition==2]=1
+data$condition3[data$condition==3]=1
+data$condition4[data$condition==4]=1
+
+data$bellevuerenton=rep(0,nrow(data))
+data$federalkent=rep(0,nrow(data))
+data$goldbar=rep(0,nrow(data))
+data$island=rep(0,nrow(data))
+data$issaquah=rep(0,nrow(data))
+data$shoreline=rep(0,nrow(data))
+
+data$bellevuerenton[data$region=="Bellevue & Renton"]=1
+data$federalkent[data$region=="Federal Way & Kent"]=1
+data$goldbar[data$region=="Gold Bar"]=1
+data$island[data$region=="Island"]=1
+data$issaquah[data$region=="Issaquah"]=1
+data$shoreline[data$region=="Shoreline"]=1
+
+#treat bedroom and bathroom as categorical
+corcheck1=data.frame(data$sqft_living,data$sqft_lot,data$sqft_basement,data$waterfront,data$grade,data$age,data$have_reno,data$bedroom1,data$bedroom2, data$bedroom3, data$bedroom4, data$bedroom5, data$bedroom6, data$bedroom7, data$bedroom8, data$bedroom9, data$bathroom2,data$bathroom3,data$bathroom4,data$bathroom5,data$bathroom6,data$bathroom7, data$floor1.5, data$floor2, data$floor2.5, data$floor3, data$floor3.5, data$view1, data$view2, data$view3, data$view4, data$condition1, data$condition2, data$condition3, data$condition4, data$bellevuerenton, data$federalkent,data$goldbar, data$island, data$issaquah, data$shoreline)
+
+#treat bedroom and bathroom as continuous
+corcheck2=data.frame(data$bedrooms,data$bathrooms, data$sqft_living,data$sqft_lot,data$sqft_basement,data$waterfront,data$grade,data$age,data$have_reno,data$floor1.5, data$floor2, data$floor2.5, data$floor3, data$floor3.5, data$view1, data$view2, data$view3, data$view4, data$condition1, data$condition2, data$condition3, data$condition4, data$bellevuerenton, data$federalkent,data$goldbar, data$island, data$issaquah, data$shoreline)
+
+
+cor1=cor(corcheck1)
+cor2=cor(corcheck2)
+
+cor1[cor1<0.8]=0
+cor2[cor2<0.8]=0
+
+cor1
+cor2
+```
+
+There is no 2 variable that have correlation higher than 0.8. Therefore, I am keeping all variables and not removing any.
+
+#Modelling
+##Model 1
+###Continuous variables:sqft_living, sqft_lot, gradenew, age
+###Categorical variables:bedroomsnew,bathroomsnew,floors,waterfront,condition,have_reno,region,have_basement
+```{r}
+data$gradec=data$gradenew-mean(data$gradenew)
+data$agec=data$age-mean(data$age)
+
+reg1=lm(logprice~as.factor(bedroomsnew)+as.factor(bathroomsnew)+as.factor(floors)+
+          as.factor(waterfront)+as.factor(condition)+as.factor(have_reno)+
+          as.factor(have_basement)+sqft_living+sqft_lot+gradec+agec+as.factor(region)+as.factor(view), data=data)
+summary(reg1)
+```
+#Diagnostics
+##Model1
+```{r}
+par(mfrow=c(2,2))
+#continous variable
+plot(y=reg1$residuals,x=data$sqft_living)
+plot(y=reg1$residuals,x=data$sqft_lot)
+plot(y=reg1$residuals,x=data$age)
+plot(y=reg1$residuals,x=data$gradenew)
+
+#categorical variable
+boxplot(reg1$residuals~data$bedroomsnew, ylab="residuals", xlab="bedroomsnew")
+boxplot(reg1$residuals~data$bathroomsnew, ylab="residuals", xlab="bathroomsnew")
+boxplot(reg1$residuals~data$floors, ylab="residuals", xlab="floors")
+boxplot(reg1$residuals~data$waterfront, ylab="residuals", xlab="waterfront")
+boxplot(reg1$residuals~data$condition, ylab="residuals", xlab="condition")
+boxplot(reg1$residuals~data$have_reno, ylab="residuals", xlab="have_reno")
+boxplot(reg1$residuals~data$have_basement, ylab="residuals", xlab="have_basement")
+boxplot(reg1$residuals~data$region, ylab="residuals", xlab="region")
+boxplot(reg1$residuals~data$view, ylab="residuals", xlab="view")
+```
+
+There seem to be fanning in for sqft_living and sqft_lot. Therefore I will try log these 2 variables and see whether things become better.
+
+Boxplot of residuals have similar median and variance across levels. I believe the residual plots demonstrate assumptions of linear regression having been met.
+
+
+##Model 2
+###Test out what if we treat bedroom,bathroom, condition and view as continuous variables
+```{r}
+#mean center
+data$bedroomsnewc=data$bedroomsnew-mean(data$bedroomsnew)
+data$bathroomsnewc=data$bathroomsnew-mean(data$bathroomsnew)
+data$conditionc=data$condition-mean(data$condition)
+data$viewc=data$view-mean(data$view)
+
+reg2=lm(logprice~bedroomsnewc+bathroomsnewc+as.factor(floors)+as.factor(waterfront)+
+          conditionc+as.factor(have_reno)+as.factor(have_basement)+sqft_living+
+          sqft_lot+gradec+agec+as.factor(region)+view, data=data)
+summary(reg2)
+exp(confint(reg2))
+```
+
+Well, R square for both reg1 and reg2 are similar. Moreover, from reg1, we observe that the coefficient of bathroom keeps increasing until the last level, so combining all levels together and assign a positive coefficient to bathroom is not a too bad idea.
+
+#Diagnostics
+##Model2
+```{r}
+par(mfrow=c(2,2))
+#continous variable
+plot(y=reg2$residuals,x=data$sqft_living)
+
+
+#zoom into sqft_lot to examine residual
+plot(y=reg2$residuals,x=data$sqft_lot)
+
+
+plot(y=reg2$residuals,x=data$age)
+plot(y=reg2$residuals,x=data$gradenew)
+
+plot(reg2$residuals~data$condition)
+plot(reg2$residuals~data$view)
+
+#categorical variable
+boxplot(reg2$residuals~data$bedroomsnew, ylab="residuals", xlab="bedroomsnew")
+boxplot(reg2$residuals~data$bathroomsnew, ylab="residuals", xlab="bathroomsnew")
+boxplot(reg2$residuals~data$floors, ylab="residuals", xlab="floors")
+boxplot(reg2$residuals~data$waterfront, ylab="residuals", xlab="waterfront")
+boxplot(reg2$residuals~data$have_reno, ylab="residuals", xlab="have_reno")
+boxplot(reg2$residuals~data$have_basement, ylab="residuals", xlab="have_basement")
+boxplot(reg2$residuals~data$region, ylab="residuals", xlab="region")
+
+```
+Residual plots look similar to model 1's as well. Residuals scatter plots have fanning in issue with sqft_living and sqft_lot although if you zoom in to smaller scale at x, the residuals look more of constant variance. Box plots of residuals demonstrate almost constant variance and median. I will keep all 4 as continuous variables for easier interpretation.
+
+
+##Model 3
+###Test out whether log transforamtion for sqft_living, sqft_lot and square transformation for grade are significant
+```{r}
+data$logliving=log(data$sqft_living)
+data$loglot=log(data$sqft_lot)
+data$grade2=data$gradec^2
+
+#relevel for region
+data$region=relevel(as.factor(data$region), ref="Seattle")
+
+#try out log of sqft_living
+reg3=lm(logprice~bedroomsnewc+bathroomsnewc+as.factor(floors)+as.factor(waterfront)+
+          conditionc+as.factor(have_reno)+as.factor(have_basement)+logliving+
+         loglot+gradec+grade2+agec+as.factor(region)+viewc, data=data)
+
+anova(reg2,reg3)
+
+summary(reg3)
+
+```
+Turns out that all terms are statistically significant. I will keep all transformed terms for sqft_living, sqft_lot and grade
+
+#Diagnostics
+##Model3
+```{r, include=FALSE}
+par(mfrow=c(2,2))
+#continous variable
+plot(y=reg3$residuals,x=data$logliving)
+plot(y=reg3$residuals,x=data$loglot)
+plot(y=reg3$residuals,x=data$age)
+plot(y=reg3$residuals,x=data$gradenew)
+
+plot(reg3$residuals~data$condition)
+plot(reg3$residuals~data$view)
+
+#categorical variable
+boxplot(reg3$residuals~data$bedroomsnew, ylab="residuals", xlab="bedroomsnew")
+boxplot(reg3$residuals~data$bathroomsnew, ylab="residuals", xlab="bathroomsnew")
+boxplot(reg3$residuals~data$floors, ylab="residuals", xlab="floors")
+boxplot(reg3$residuals~data$waterfront, ylab="residuals", xlab="waterfront")
+boxplot(reg3$residuals~data$have_reno, ylab="residuals", xlab="have_reno")
+boxplot(reg3$residuals~data$have_basement, ylab="residuals", xlab="have_basement")
+boxplot(reg3$residuals~data$region, ylab="residuals", xlab="region")
+
+```
+Yes, log sqft_living and log sqft_lot solve fan in problems.
+
+
+#Interpretation to answer question 1
+```{r}
+#Interpretation
+lower=percent(exp(confint(reg3)[,1])-1)
+upper=percent(exp(confint(reg3)[,2])-1)
+est=percent(exp(reg3$coefficients)-1)
+
+interpret=data.frame(lower,upper,est)
+interpret=interpret[seq(2,nrow(interpret)),]
+
+interpret$predictor=rownames(interpret)
+
+interpret=interpret[c(-12,-13,-14,-15),]
+
+interpret
+```
+
+All variables are statistically significant.
+
+The price of other types of house comparing with a house in seattle when all other variables held constant is as below, I am only highlighting the interesting findings here:
+
+- increase in every 1 bedrooom will cause the median price to drop by 2.33%-3.40%, but increase ine very 1 bathroom will cause the median price to increase by 4.20% - 5.76%
+
+- the house of 3 floor will have median price around 12.22%-18.46% higher than 1 floor. That has shown people maybe valuing house of 3 floors more.
+
+- the house that has a waterfront view will have median price around 35.14%-48.53% higher
+
+- with every 1 increase in condition grade, the median price of the house increases by 4.65%-5.99%
+
+- the house that has renovation will have median price increased by 3.37%-7.51%
+
+- the house that has basement will have median price increased by 0.76%-2.73%
+
+- with every 1 year increase in age, the median price increases by 0.38%-0.42%.
+
+- if the house is in Bellevue and Renton region, the median price would increase by 0.73%-3.07%
+
+- if the house is in Federal Way and Kent, the median price would decrease by 31.18%-33.08%
+
+- if the house in Gold Bar, the median price would decrease by 25.44%-43.24%
+
+- if the house is in Island ,the median price would decrease by 0.73%-10.67%
+
+- if the house is in Issaquah, the media price would increase by 3.43%-6.57%
+
+- if the house is at shoreline, the median price would increase by 0.69%-3.16%
+
+- If the house sqft_living increases by 50%, the median price would increase by 0.40^1.5 - 0.44^1.5 which is 25.3%-29.2%. 
+
+- The house sqft_lot increases by 50%, the median price would increase by -0.0235^(1.5) - (-0.0127)^(1.5) which is 0.143% to 0.36% which is close to no change.
+
+
+Among all insights, the interesting ones are when all other variables held constant, more bedrooms will cause median price to drop and higher age will cause median price to increase. These are less intuitive, but they may be due to predictors that are not explained in this model. For example, older houses may have some other features that are attractive to buyers.
+
+
+
+```{r, echo=FALSE}
+#interpret quadratic impact of grade
+newdataframe=data.frame(data[seq(1,20),])
+newdataframe=newdataframe[,c(7,8,9,10,11,12,25,26,27,28,29,31,33)]
+newdataframe$bedroomsnew=rep(3,20)
+newdataframe$bathroomsnew=rep(1,20)
+newdataframe$sqft_living=rep(1180,20)
+newdataframe$sqft_lot=rep(5650,20)
+newdataframe$floors=rep(1,20)
+newdataframe$waterfront=rep(0,20)
+newdataframe$view=rep(0,20)
+newdataframe$condition=rep(3,20)
+newdataframe$gradenew[1:7]=seq(1,7)
+newdataframe$gradenew[8:14]=seq(1,7)
+newdataframe$gradenew[15:20]=seq(1,6)
+newdataframe$gradec=newdataframe$gradenew
+newdataframe$region=rep("Bellevue & Renton", 20)
+newdataframe$have_basement=rep(0,20)
+newdataframe$age=rep(59,20)
+newdataframe$have_reno=rep(0,20)
+newdataframe$logliving=log(newdataframe$sqft_living)
+newdataframe$loglot=log(newdataframe$sqft_lot)
+newdataframe$grade2=newdataframe$gradec^2
+names(newdataframe)[7:8]=c("bedroomsnewc","bathroomsnewc")
+names(newdataframe)[12]=c("agec")
+names(newdataframe)[6]=c("conditionc")
+names(newdataframe)[5]=c("viewc")
+pred=predict(reg3,newdataframe)
+newdataframe$pred=exp(pred)
+
+ggplot(newdataframe, aes(x=gradec,y=pred))+
+  geom_point()+
+  geom_smooth()+
+  labs(x="Grade", y="Price", title="Price against Grade of House")
+
+```
+When all the other variables are held constant, the relationship between price and grade of house is as shown above.
+
+
+#Explore Interaction
+```{r}
+#focus on impact of region
+
+#price and square_living with different region
+ggplot(data,aes(x=sqft_living, y=logprice))+
+  geom_point()+
+  geom_smooth()+
+  facet_wrap(~region, ncol=3)
+
+#price and square_lot with different region (zoom in)
+ggplot(data,aes(x=sqft_lot, y=logprice))+
+  geom_point()+
+  facet_wrap(~region, ncol=3)+
+  scale_x_continuous(limits = c(0, 50000))
+
+#price and gradenew with different region
+ggplot(data,aes(x=gradenew, y=logprice))+
+  geom_point()+
+  geom_smooth()+
+  facet_wrap(~region, ncol=3)
+
+#price and age with different region
+ggplot(data,aes(x=age, y=logprice))+
+  geom_point()+
+  geom_smooth()+
+  facet_wrap(~region, ncol=3)
+
+#price vs bathrooms
+ggplot(data,aes(x=bathroomsnew, y=logprice))+
+  geom_point()+
+  facet_wrap(~region, ncol=3)
+
+#price vs bedrooms
+ggplot(data,aes(x=bedroomsnew, y=logprice))+
+  geom_point()+
+  geom_smooth()+
+  facet_wrap(~region, ncol=3)
+
+#price vs floors
+ggplot(data,aes(x=as.factor(floors), y=logprice))+
+  geom_boxplot()+
+  facet_wrap(~region, ncol=3)
+#price vs waterfront
+ggplot(data,aes(x=as.factor(waterfront), y=logprice))+
+  geom_boxplot()+
+  facet_wrap(~region, ncol=3)
+#price vs have_reno. Seems there's interaction here!
+ggplot(data,aes(x=as.factor(have_reno), y=logprice))+
+  geom_boxplot()+
+  facet_wrap(~region, ncol=3)
+#price vs condition
+ggplot(data,aes(x=as.factor(condition), y=logprice))+
+  geom_boxplot()+
+  facet_wrap(~region, ncol=3)
+#price vs have_basement
+ggplot(data,aes(x=as.factor(have_basement), y=logprice))+
+  geom_boxplot()+
+  facet_wrap(~region, ncol=3)
+
+```
+
+sqft_living, sqft_lot, grade, age - there seems to be no interaction between region and these variables, as the plot for logprice against these variables in different regions are lines that are almost parallel.
+
+waterfront, condition, basement, floor, bedroom- there's no jarringly different trend observed between logprice and condition/waterfront/basement/floor/bedroom in different regions. Therefore, I would say there's no interaction between region and waterfront/condition/basement/floor/bedroom as well.
+
+bathroom, have_renovation - the smooth line between logprice and bathroom seem not to be very parallel. And the relationship between price and have/have not renovation changes slightly for different regions, such as Issaquah and Gold Bar.We can try out these 2 interactions and see whether they are significant.
+
+
+##Explore interaction between categorical variable and continuous variable
+no obvious interaction is spotted.
+
+##Model 4 - with only 2 possible interaction
+```{r}
+reg4=lm(logprice~bedroomsnewc+bathroomsnewc*as.factor(region)+as.factor(floors)+as.factor(waterfront)+
+          conditionc+as.factor(have_basement)+logliving+
+         loglot+gradec+grade2+agec+as.factor(have_reno)*as.factor(region)+viewc, data=data)
+
+
+anova(reg4,reg3)
+
+```
+
+Turn out both interactions are significant.
+
+#Diagnostics Prove that assumptions are met as the residuals are distributed randomly
+
+#Interpretation
+```{r}
+summary(reg4)
+
+percent(exp(confint(reg4))-1)
+```
+
+Different region of people appreciate buying houses that renovated before differently.Comparing with houses that do not have renovation in Seattle, houses that are in Bellevue & Renton and have renovation, are exp(-0.0011+0.0042+0.170)-1=18.9% more expensive;houses that are in Federal Way & Kent and have renovation, are exp(-0.4+0.0042+0.04)-1=29.9% less expensive;houses that are in Gold Bar and have renovation, are exp(-0.31+0.0042-0.534)-1= 56.8% less expensive; houses that are in Island and have renovation, are exp(-0.084+0.0042-0.144)-1=20.1%; houses that are in Issaquah and have renovation, are exp(0.0545+0.0042-0.06)-1=0.12% less expensive (can be seen as same price); houses that are in Shoreline and have renovation, are exp(-0.0004+0.0042-0.00180)-1=0.2% more expensive (can be seen as same price)
+
+
+
+
+
