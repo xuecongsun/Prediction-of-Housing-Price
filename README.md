@@ -1,4 +1,4 @@
-## Prediction-of-Housing-Price
+# Prediction-of-Housing-Price
 
 R script of my project on prediction of housing price in king county
 
@@ -74,12 +74,9 @@ Multiple regression is used to predict house price as log price demonstrates a l
 
 * **Among all insights, the interesting ones are when all other variables held constant, more bedrooms will cause median price to drop and higher age will cause median price to increase. We can infer that when all other variables are the same for 2 houses, people in general prefer houses with fewer bedrooms. This may be because people prefer house area to be used for other purpose rather than bedrooms. For the fact that people prefer older houses, it may be due to predictors that are not explained in this model. For example, older houses may have some other features that are attractive to buyers.**
 
+### Evidence of Relationship between Price and House Features Differ by Region
 
+* Different region of people appreciate buying houses that renovated before differently.  
 
+* Comparing with houses that do not have renovation in Seattle, houses that are in Bellevue & Renton and have renovation, are exp(-0.0011+0.0042+0.170)-1=18.9% more expensive; houses that are in Federal Way & Kent and have renovation, are exp(-0.4+0.0042+0.04)-1=29.9% less expensive; houses that are in Gold Bar and have renovation, are exp(-0.31+0.0042-0.534)-1=56.8% less expensive; houses that are in Island and have renovation, are exp(-0.084+0.0042-0.144)-1=20.1%; houses that are in Issaquah and have renovation, are exp(0.0545+0.0042-0.06)-1=0.12% less expensive (can be seen as same price); houses that are in Shoreline andhave renovation, are exp(-0.0004+0.0042-0.00180)-1=0.2% more expensive (can be seen as same price)
 
-
-  ### Evidence of Relationship between Price and House Features Differ by Region
-
-  Different region of people appreciate buying houses that renovated before differently.  
-
-  Comparing with houses that do not have renovation in Seattle, houses that are in Bellevue & Renton and have renovation, are exp(-0.0011+0.0042+0.170)-1=18.9% more expensive; houses that are in Federal Way & Kent and have renovation, are exp(-0.4+0.0042+0.04)-1=29.9% less expensive; houses that are in Gold Bar and have renovation, are exp(-0.31+0.0042-0.534)-1=56.8% less expensive; houses that are in Island and have renovation, are exp(-0.084+0.0042-0.144)-1=20.1%; houses that are in Issaquah and have renovation, are exp(0.0545+0.0042-0.06)-1=0.12% less expensive (can be seen as same price); houses that are in Shoreline andhave renovation, are exp(-0.0004+0.0042-0.00180)-1=0.2% more expensive (can be seen as same price)
