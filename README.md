@@ -48,9 +48,9 @@ Multiple regression is used to predict house price as log price demonstrates a l
 
 3. **Condition** - Condition 3 is the most common across all regions. Bellevue & Renton and Seattle have the highest number of condition level above 4.
 
-4. **Floor** - Floor 1 is the most common across all regions, follOwed by floor 2. Seattle and Shoreline have a significant amount of 3 floors whereas the other regions don’t.
+4. **Floor** - Floor 1 is the most common across all regions, followed by floor 2. Seattle and Shoreline have a significant amount of 3 floors whereas the other regions don’t.
 
-5. **View/Waterfront/Renovation**- no view, have waterfront and have renovated are the norms across regions.
+5. **View/Waterfront/Renovation**- no view, having waterfront and having renovated are the norms across regions.
 
 6. **Basement** - most of houses in most of regions don't have basement. In Seattle we observe the highest amount of houses having basement.
 
@@ -68,11 +68,12 @@ Multiple regression is used to predict house price as log price demonstrates a l
 
 * All variables are statistically significant. The price of other types of house comparing with a house in Seattle when all other variables held constant is as below (all 95% CI), I am only highlighting the interesting findings here:
 
-* The increase in every 1 bedrooom will cause the median price to drop by 2.33%-3.40%, but increase in every 1 bathroom will cause the median price to increase by 4.20% - 5.76%. The house of 3 floor will have median price around 12.22%-18.46% higher than 1 floor. That has shown people maybe valuing house of 3 floors more. The house that has a waterfront view will have median price around 35.14%-48.53% higher. With every 1 increase in condition grade, the median price of the house increases by 4.65%-5.99%. The house that has renovation will have median price increased by 3.37%-7.51%. The house that has basement will have median price increased by 0.76%-2.73%. With every 1 year increase in age, the median price increases by 0.38%-0.42%. 
+* The increase in every 1 bedroom will cause the median price to drop by 2.33%-3.40%, but increase in every 1 bathroom will cause the median price to increase by 4.20% - 5.76%. The house of 3 floor will have median price around 12.22%-18.46% higher than 1 floor. That has shown people maybe valuing house of 3 floors more. The house that has a waterfront view will have median price around 35.14%-48.53% higher. With every 1 increase in condition grade, the median price of the house increases by 4.65%-5.99%. The house that has renovation will have median price increased by 3.37%-7.51%. The house that has basement will have median price increased by 0.76%-2.73%. With every 1 year increase in age, the median price increases by 0.38%-0.42%. 
 
 * If the house is in Bellevue and Renton region, the median price would increase by 0.73%-3.07%. If the house is in Federal Way and Kent, the median price would decrease by 31.18%-33.08%. If the house in Gold Bar, the median price would decrease by 25.44%-43.24%. If the house is in Island , the median price would decrease by 0.73%-10.67%. If the house is in Issaquah, the media price would increase by 3.43%-6.57%. If the house is at shoreline, the median price would increase by 0.69%-3.16%. If the house sqft_living increases by 50%, the median price would increase by 0.40^1.5 - 0.44^1.5 which is 25.3%-29.2%. The house sqft_lot increases by 50%, the median price would increase by -0.0235^(1.5) - (-0.0127)^(1.5) which is 0.143% to 0.36% which is close to no change.
 
 * **Among all insights, the interesting ones are when all other variables held constant, more bedrooms will cause median price to drop and higher age will cause median price to increase. We can infer that when all other variables are the same for 2 houses, people in general prefer houses with fewer bedrooms. This may be because people prefer house area to be used for other purpose rather than bedrooms. For the fact that people prefer older houses, it may be due to predictors that are not explained in this model. For example, older houses may have some other features that are attractive to buyers.**
+* **Furthermore, seattle is not the region with highest house price when all other variables are held constant. Issaquah is.**
 
 ### Evidence of Relationship between Price and House Features Differ by Region
 
